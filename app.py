@@ -2,20 +2,54 @@ from flask import Flask, request
 from flask_restful import Resource, Api
 from sqlalchemy import create_engine
 from json import dumps
+import random
+import re
 
-#
-e = create_engine('sqlite:///local_db.db')
+# create sqlalchemy connection object
+engine = create_engine('sqlite:///local_db.db')
 
 app = Flask(__name__)
 api = Api(app)
 
 class ProvideSample(Resource):
 	def get(self):
-		#Connect to databse
-		conn = e.connect()
-		#Perform query and return JSON data
-		query = conn.execute("select samples from sample_text")
-		return {'sample_text': [i[0] for i in query.cursor.fetchall()]}
+
+		# connect to db
+		conn = engine.connect()
+
+		# select a random text sample
+		query = conn.execute(
+		'''
+		select *
+		from sample_text
+		order by random()
+		limit 1;'''
+		)
+
+		# get query result
+		result = query.cursor.fetchall()[0][0]
+
+		words_to_exclude = get_words_to_exclude(result)
+
+		print(words_to_exclude)
+
+		return {'sample_text': result, 'exclude': words_to_exclude}
+
+def get_words_to_exclude(text):
+
+	# convert text to lower case
+	text = text.lower()
+
+	# replace punctuation to leave just words and split the result
+	text = re.sub('[.|,|!|:|-]', '', text).split()
+
+	# get random index values of
+	random_index = [random.randrange(0, len(text)) for i in range(0, 3)]
+
+	# select 3 random words from the list of words to exclude for the test
+	words = [text[ix] for ix in random_index]
+
+	return words
 
 # create class which will serve as our post method to get the insput data
 class ReceiveInput(Resource):
@@ -33,22 +67,23 @@ class ReceiveInput(Resource):
 		else:
 			count = list_counter(text_split)
 
-		print(req['exclude'])
+		print(count)
 
-def list_counter(text_list, exclude=None):
+def list_counter(text_list, exclude=[]):
 
 	# get unique list of words in the input text
 	unique_words = set(text_list)
 
+	# eliminate words passed as an exclusion list
+	words_to_count = [i for i in text_list if i not in exclude]
+
 	# return count of each unique word
-	count = {i:text_list.count(i) for i in unique_words}
+	count = {i:text_list.count(i) for i in words_to_count}
 
 	return count
 
 api.add_resource(ProvideSample, '/')
 api.add_resource(ReceiveInput, '/')
-
-#api.add_resource(Sample, '/dept/<string:department_name>')
 
 if __name__ == '__main__':
 	app.run(debug=True)
