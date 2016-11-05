@@ -1,12 +1,12 @@
 from flask import Flask, request
-from flask_restful import Resource, Api
-from sqlalchemy import create_engine
+from flask_restful import Api, Resource, abort
+import sqlalchemy as sa
 from json import dumps
 import random
 import re
 
 # create sqlalchemy connection object
-engine = create_engine('sqlite:///local_db.db')
+engine = sa.create_engine('sqlite:///local_db.db')
 
 app = Flask(__name__)
 api = Api(app)
@@ -17,7 +17,7 @@ class ProvideSample(Resource):
 		# connect to db
 		conn = engine.connect()
 
-		# select a random text sample
+		# select a random text sample by executing
 		query = conn.execute(
 		'''
 		select *
@@ -29,11 +29,31 @@ class ProvideSample(Resource):
 		# get query result
 		result = query.cursor.fetchall()[0][0]
 
+		# get random words in sample text to exclude from count
 		words_to_exclude = get_words_to_exclude(result)
 
-		print(words_to_exclude)
+		return {'text': result, 'exclude': words_to_exclude}
 
-		return {'sample_text': result, 'exclude': words_to_exclude}
+# create class which will serve as our post method to get the input data
+class ReceiveInput(Resource):
+	def post(self):
+
+		# get request in JSON
+		user_input = request.get_json(force=True)
+
+		text = user_input.get('text')
+		exclude = user_input.get('exclude')
+		count = user_input.get('count')
+
+		# get count from defined function below
+		solution = count_words(user_input.get('text'),
+		 	exclude=user_input.get('exclude'))
+
+		# compare word count objects to validate request
+		if count == solution:
+			return 200, 'OK'
+		else:
+			return 400, 'Bad Request'
 
 def get_words_to_exclude(text):
 
@@ -41,7 +61,7 @@ def get_words_to_exclude(text):
 	text = text.lower()
 
 	# replace punctuation to leave just words and split the result
-	text = re.sub('[.|,|!|:|-]', '', text).split()
+	text = remove_punctuation(text)
 
 	# get random index values of
 	random_index = [random.randrange(0, len(text)) for i in range(0, 3)]
@@ -51,25 +71,10 @@ def get_words_to_exclude(text):
 
 	return words
 
-# create class which will serve as our post method to get the insput data
-class ReceiveInput(Resource):
-	def post(self):
+def count_words(text, exclude=[]):
 
-		# get request in JSON
-		req = request.get_json(force=True)
-
-		# split the input text via str method
-		text_split = [i for i in req['text'].split()]
-
-		# get count from defined function below
-		if req.get('exclude'):
-			count = list_counter(text_split, exclude=req.get('exclude'))
-		else:
-			count = list_counter(text_split)
-
-		print(count)
-
-def list_counter(text_list, exclude=[]):
+	# convert text string to lowercase and split it
+	text_list = text.lower().split()
 
 	# get unique list of words in the input text
 	unique_words = set(text_list)
@@ -81,6 +86,10 @@ def list_counter(text_list, exclude=[]):
 	count = {i:text_list.count(i) for i in words_to_count}
 
 	return count
+
+def remove_punctuation(text):
+	# converts text to lowercase and replaces punctuation
+	return re.sub('[.|,|!|:|-|;]', '', text.lower()).split()
 
 api.add_resource(ProvideSample, '/')
 api.add_resource(ReceiveInput, '/')
