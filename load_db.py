@@ -3,6 +3,7 @@ import pandas as pd
 import sqlalchemy as sa
 
 def main():
+    '''Loads sqlite database with text samples within texts/ directory.'''
     # declare a list to collect our sample data
     text = []
 
@@ -13,11 +14,11 @@ def main():
             text.append(f.read().splitlines()[0])
 
     # utilizing a pandas dataframe will allow simple insertion into the db
-    # and optimize transformations, if necessary
+    # and allow optimal transformations, if necessary
     sample_text = pd.DataFrame({'samples' : text})
 
     # connect to db via sqlalchemy
-    engine = sa.create_engine('sqlite:///local_db.db')
+    engine = sa.create_engine('sqlite:///local_db_test.db')
 
     # by using pandas handy to_sql text we can avoid having to
     # manually create insert statements
