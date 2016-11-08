@@ -18,7 +18,7 @@ def main():
     sample_text = pd.DataFrame({'samples' : text})
 
     # connect to db via sqlalchemy
-    engine = sa.create_engine('sqlite:///local_db_test.db')
+    engine = sa.create_engine('sqlite:///local_db.db')
 
     # by using pandas handy to_sql text we can avoid having to
     # manually create insert statements

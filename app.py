@@ -15,25 +15,17 @@ def get():
 	by the clientand a list of words from that string
 	to NOT be counted.'''
 
-	# connect to db
-	conn = engine.connect()
-
-	# select a random text sample by executing raw sql
-	query = conn.execute(
-	'''
-	select *
-	from sample_text
-	order by random()
-	limit 1;'''
-	)
-
-	# get query result
-	result = query.cursor.fetchall()[0][0]
+	random_sample = get_random_sample()
 
 	# get random words in sample text to exclude from count
-	words_to_exclude = get_words_to_exclude(result)
+	words_to_exclude = get_words_to_exclude(random_sample)
 
-	return json.dumps({'text': result, 'exclude': words_to_exclude})
+	return json.dumps(
+		{
+		'text': random_sample,
+	 	'exclude': words_to_exclude
+		}
+	)
 
 @app.route('/', methods=['POST'])
 def post():
@@ -52,17 +44,41 @@ def post():
 	except:
 		abort(400)
 
-	# get count from defined function below
-	solution = count_words(user_input.get('text'),
-	 	exclude=user_input.get('exclude'))
+	# validate the types of each arg, return 400 if they are not what is expected
+	if type(text) != str or type(exclude) != list or type(count) != dict:
+		abort(400)
 
-	#print(count)
+	# get correct count of words in text minus the exclude words
+	solution = count_words(
+		user_input.get('text'),
+	 	exclude=user_input.get('exclude')
+		)
 
 	# compare word count objects to validate request
 	if count == solution:
 		return ''
 	else:
 		abort(400)
+
+def get_random_sample():
+	'''Return a random sample of text contained in sqlite db: local_db.db'''
+	# connect to db
+	conn = engine.connect()
+
+	# select a random text sample by executing raw sql
+	query = conn.execute(
+	'''
+	select *
+	from sample_text
+	order by random()
+	limit 1;
+	'''
+	)
+
+	# get query result
+	result = query.cursor.fetchall()[0][0]
+
+	return result
 
 def get_words_to_exclude(text):
 	'''Given a string of text, return up to 3 words from that string,
@@ -86,8 +102,9 @@ def get_words_to_exclude(text):
 	if len(text) == random_index:
 		random_index.pop()
 
-	# select 3 random words from the list of words to exclude for the test
-	words = set([text[ix] for ix in random_index])
+	# get up to 3 unique random words from the list of words
+	# to exclude for the test
+	words = list(set([text[ix] for ix in random_index]))
 
 	return words
 
@@ -112,8 +129,14 @@ def count_words(text, exclude=[]):
 def format_text(text):
 	'''Return the given string in lowercase, minus punctuation, in a list object
 	containing each word.'''
-	# converts text to lowercase and replaces punctuation
-	return re.sub('[.|,|!|:|-|;|?|\'|\"]', '', text.lower()).split()
+
+	# retain only lower case words and spaces via regex pattern and force string
+	# to lowercase
+	text_sub = re.sub('[^a-z|\s+]', '', text.lower())
+
+	# return string split by spaces
+	return text_sub.split()
+	#return re.sub('[.|,|!|:|-|;|?|\'|\"]', '', text.lower()).split()
 
 if __name__ == '__main__':
-	app.run(debug=True)
+	app.run(debug=True, host='localhost', port=8000)
