@@ -136,7 +136,6 @@ def format_text(text):
 
 	# return string split by spaces
 	return text_sub.split()
-	#return re.sub('[.|,|!|:|-|;|?|\'|\"]', '', text.lower()).split()
 
 if __name__ == '__main__':
 	app.run(debug=True, host='localhost', port=8000)
